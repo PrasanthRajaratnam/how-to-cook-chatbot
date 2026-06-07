@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HowToCook Multilingual Chatbot</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar with info and filters -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-fire-burner logo-icon"></i>
+                <div class="brand-text">
+                    <h1>HowToCook</h1>
+                    <span>Smart Cooking Guide</span>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>Try Asking Me:</h3>
+                <div class="suggestion-chips">
+                    <button class="chip" onclick="sendSuggestion('I have eggs, tomato and green onion. What can I cook?')">
+                        <i class="fa-solid fa-egg"></i> I have eggs & tomato...
+                    </button>
+                    <button class="chip" onclick="sendSuggestion('我有一些猪肉和土豆，可以做什么菜？')">
+                        <i class="fa-solid fa-drumstick-bite"></i> 我有猪肉和土豆...
+                    </button>
+                    <button class="chip" onclick="sendSuggestion('What recipes can I make in under 30 minutes?')">
+                        <i class="fa-solid fa-clock"></i> Under 30 minutes
+                    </button>
+                    <button class="chip" onclick="sendSuggestion('15分钟内能搞定什么早餐？')">
+                        <i class="fa-solid fa-mug-saucer"></i> 15分钟搞定早餐
+                    </button>
+                </div>
+            </div>
+
+            <div class="sidebar-section about-card">
+                <h3>About This App</h3>
+                <p>This chatbot matches your available ingredients and cooking time with recipes from the popular <strong>HowToCook</strong> Chinese cooking repository. It detects English or Chinese inputs automatically and translates instructions on the fly!</p>
+                <div class="badge-row">
+                    <span class="badge"><i class="fa-solid fa-globe"></i> Bilingual</span>
+                    <span class="badge"><i class="fa-solid fa-bolt"></i> Local Engine</span>
+                </div>
+            </div>
+
+            <footer class="sidebar-footer">
+                <p>Academic Project &copy; 2026</p>
+            </footer>
+        </aside>
+
+        <!-- Main Chat Area -->
+        <main class="chat-main">
+            <!-- Top bar -->
+            <header class="chat-header">
+                <div class="header-status">
+                    <div class="status-indicator"></div>
+                    <div>
+                        <h2>Cooking Assistant</h2>
+                        <p>Ask about ingredients or cooking time limit</p>
+                    </div>
+                </div>
+                <button class="reset-btn" onclick="resetSession()" title="Reset Conversation">
+                    <i class="fa-solid fa-rotate-left"></i> Reset
+                </button>
+            </header>
+
+            <!-- Messages view -->
+            <div class="messages-container" id="messages-container">
+                <!-- Welcome Message -->
+                <div class="message-wrapper bot">
+                    <div class="avatar">
+                        <i class="fa-solid fa-robot"></i>
+                    </div>
+                    <div class="message-bubble">
+                        <p>👋 Hello! I am your AI Cooking Assistant. I can help you search and cook recipes from the <strong>HowToCook</strong> developer cooking guide.</p>
+                        <p>Tell me what ingredients you have, or how much time you want to spend, and I will recommend the best recipes!</p>
+                        <p class="zh-info">👋 你好！我是你的 AI 厨房助手。我能帮你查询 <strong>HowToCook</strong> (程序员在家做饭指南) 中的菜谱。告诉我你手头有的食材，或者限定的烹饪时间，我会为你量身推荐合适的菜谱！</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input area -->
+            <footer class="chat-input-area">
+                <form id="chat-form" class="input-form">
+                    <input type="text" id="user-input" placeholder="Type ingredients (e.g. tomato, egg) or time limits (e.g. 30 mins)..." autocomplete="off" required>
+                    <button type="submit" class="send-btn" id="send-button">
+                        <i class="fa-solid fa-paper-plane"></i>
+                    </button>
+                </form>
+            </footer>
+        </main>
+    </div>
+
+    <!-- App JavaScript -->
+    <script src="app.js"></script>
+</body>
+</html>
