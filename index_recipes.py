@@ -5,10 +5,11 @@ import time
 from pathlib import Path
 from deep_translator import GoogleTranslator
 
-REPO_PATH = Path("/Users/prasanthrajaratnam/.gemini/antigravity/scratch/HowToCookChatbot/recipe_repo")
+BASE_DIR = Path(__file__).resolve().parent
+REPO_PATH = BASE_DIR / "recipe_repo"
 DISHES_PATH = REPO_PATH / "dishes"
-OUTPUT_INDEX_PATH = Path("/Users/prasanthrajaratnam/.gemini/antigravity/scratch/HowToCookChatbot/recipes_bilingual.json")
-CACHE_PATH = Path("/Users/prasanthrajaratnam/.gemini/antigravity/scratch/HowToCookChatbot/translation_cache.json")
+OUTPUT_INDEX_PATH = BASE_DIR / "recipes_bilingual.json"
+CACHE_PATH = BASE_DIR / "translation_cache.json"
 
 # Load translation cache
 translation_cache = {}

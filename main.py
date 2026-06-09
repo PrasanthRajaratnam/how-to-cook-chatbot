@@ -20,7 +20,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-BASE_DIR = Path("/Users/prasanthrajaratnam/.gemini/antigravity/scratch/HowToCookChatbot")
+BASE_DIR = Path(__file__).resolve().parent
 INDEX_PATH = BASE_DIR / "recipes_bilingual.json"
 REPO_PATH = BASE_DIR / "recipe_repo"
 
