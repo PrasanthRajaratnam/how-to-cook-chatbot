@@ -208,10 +208,13 @@ body {
 /* TAB 1: HOME LANDING STYLE */
 #tab-home {
     padding: 60px 40px;
-    display: flex;
     flex-direction: column;
     gap: 60px;
     background: radial-gradient(circle at top right, rgba(245, 158, 11, 0.05) 0%, transparent 40%);
+}
+
+#tab-home.tab-pane.active {
+    display: flex;
 }
 
 .hero-container {
