@@ -216,13 +216,19 @@ def parse_recipe_file(filepath):
     intro = "\n".join(intro_lines)
     
     # Parse metadata from intro-like lines
+    difficulty = 2
+    difficulty_is_estimated = True
     diff_match = re.search(r'预估烹饪难度：(.*)', intro_clean)
     if diff_match:
         difficulty = parse_difficulty(diff_match.group(1))
+        difficulty_is_estimated = False
         
+    calories = None
+    calories_is_estimated = True
     cal_match = re.search(r'预估卡路里：(.*)', intro_clean)
     if cal_match:
         calories = parse_calories(cal_match.group(1))
+        calories_is_estimated = False
         
     # Process other sections
     for sec in sections[1:]:
@@ -251,13 +257,31 @@ def parse_recipe_file(filepath):
                     steps.append(step_clean)
                     
     # Infer time
-    inferred_time = infer_time_from_text(intro, steps)
+    # Check if we have hour/minute directly in description
+    intro_hour_match = re.search(r'(?:全程约|大约|只需|需要)\s*(\d+(?:\.\d+)?)\s*小时', intro)
+    intro_min_match = re.search(r'(?:全程约|大约|只需|需要)\s*(\d+)\s*分钟', intro)
+    intro_generic_match = re.search(r'(\d+)\s*分钟', intro)
+
+    time_is_estimated = False
+    inferred_time = None
     
-    # Default time if none found
+    if intro_hour_match:
+        inferred_time = int(float(intro_hour_match.group(1)) * 60)
+    elif intro_min_match:
+        inferred_time = int(intro_min_match.group(1))
+    elif intro_generic_match:
+        inferred_time = int(intro_generic_match.group(1))
+    else:
+        # We need to search steps
+        inferred_time = infer_time_from_text("", steps)
+        if inferred_time is not None:
+            time_is_estimated = True
+
     if inferred_time is None:
         # Fallback based on difficulty stars
         star_to_time = {0: 10, 1: 10, 2: 15, 3: 30, 4: 45, 5: 60}
         inferred_time = star_to_time.get(difficulty, 30)
+        time_is_estimated = True
         
     # Categorize time
     if inferred_time <= 15:
@@ -269,28 +293,42 @@ def parse_recipe_file(filepath):
     else:
         time_category = "over 60 minutes"
         
+    # Category is the directory under dishes/
+    parts = filepath.relative_to(REPO_PATH / "dishes").parts
+    category = parts[0] if len(parts) > 0 else "unknown"
+    
     return {
         "name_zh": name,
         "intro_zh": intro,
         "difficulty": difficulty,
+        "difficulty_is_estimated": difficulty_is_estimated,
         "calories": calories,
+        "calories_is_estimated": calories_is_estimated,
         "ingredients_zh": ingredients,
         "steps_zh": steps,
         "images": images,
         "cooking_time_minutes": inferred_time,
+        "time_is_estimated": time_is_estimated,
         "time_category": time_category,
+        "category": category,
         "file_path": str(rel_path)
     }
 
 def main():
     print("Scanning dishes in HowToCook repository...")
     recipes = []
+    seen_names = set()
     for root, dirs, files in os.walk(DISHES_PATH):
         for file in files:
             if file.endswith(".md") and file != "README.md":
                 filepath = Path(root) / file
                 recipe = parse_recipe_file(filepath)
                 if recipe and recipe["ingredients_zh"] and recipe["steps_zh"]:
+                    name = recipe["name_zh"]
+                    # Skip duplicate recipes or template examples to keep database clean
+                    if name in seen_names or "示例" in name or "template" in str(filepath).lower():
+                        continue
+                    seen_names.add(name)
                     recipes.append(recipe)
                     
     print(f"Found and parsed {len(recipes)} recipes.")
@@ -321,7 +359,7 @@ def main():
     # Construct bilingual recipes list
     print("Constructing bilingual database...")
     bilingual_recipes = []
-    for r in recipes:
+    for idx, r in enumerate(recipes, 1):
         # Translate name
         name_en = translation_cache.get(r["name_zh"].strip(), r["name_zh"])
         # Translate intro
@@ -331,23 +369,26 @@ def main():
         # Translate steps
         steps_en = [translation_cache.get(step.strip(), step) for step in r["steps_zh"]]
         
-        # Add English version of ingredients list where we parse names out of quantity
-        # e.g., "红葱头 25 g" -> English ingredients
-        
         bilingual_recipes.append({
-            "name_zh": r["name_zh"],
-            "name_en": name_en,
+            "recipe_id": f"recipe_{idx:03d}",
+            "recipe_name_original": r["name_zh"],
+            "recipe_name_english": name_en,
+            "category": r["category"],
             "intro_zh": r["intro_zh"],
             "intro_en": intro_en,
             "difficulty": r["difficulty"],
+            "difficulty_is_estimated": r["difficulty_is_estimated"],
             "calories": r["calories"],
+            "calories_is_estimated": r["calories_is_estimated"],
             "ingredients_zh": r["ingredients_zh"],
             "ingredients_en": ingredients_en,
             "steps_zh": r["steps_zh"],
             "steps_en": steps_en,
             "images": r["images"],
             "cooking_time_minutes": r["cooking_time_minutes"],
+            "time_is_estimated": r["time_is_estimated"],
             "time_category": r["time_category"],
+            "language": "zh",
             "file_path": r["file_path"]
         })
         

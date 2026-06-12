@@ -43,6 +43,11 @@ conversations: Dict[str, Dict[str, Any]] = {}
 class ChatRequest(BaseModel):
     message: str
     sessionId: str
+    ingredients: Optional[List[str]] = None
+    timeLimit: Optional[int] = None
+    difficulty: Optional[int] = None
+    language: Optional[str] = None
+    category: Optional[str] = None
 
 def is_chinese(text: str) -> bool:
     """Helper to detect if text contains Chinese characters."""
@@ -66,18 +71,14 @@ def extract_time_limit(text: str) -> Optional[int]:
         return 15
         
     # Match numbers followed by mins/minutes/h/hours/分钟/小时
-    # e.g., "30 min", "15m", "1.5 h", "2 小时", "45分钟"
     matches = re.findall(r'(\d+(?:\.\d+)?)\s*(?:min|minute|m|h|hour|分钟|分|小时|点钟)', text_lower)
     if matches:
-        # Take the first matched time
         val = float(matches[0])
-        # If the unit is hours
         unit_match = re.search(rf'{matches[0]}\s*(?:h|hour|小时)', text_lower)
         if unit_match:
             return int(val * 60)
         return int(val)
         
-    # Match bare numbers if the user says "in 30" or "under 15"
     bare_match = re.search(r'(?:under|in|less than|低于|少于|不超过|在|限时)\s*(\d+)\s*(?!大卡|卡|g|克)', text_lower)
     if bare_match:
         return int(bare_match.group(1))
@@ -88,10 +89,8 @@ def clean_ingredient_name(name: Any) -> str:
     """Removes comments and quantities from ingredient text for better matching."""
     if not name or not isinstance(name, str):
         return ""
-    # Remove contents in parenthesis
     name = re.sub(r'（.*?）', '', name)
     name = re.sub(r'\(.*?\)', '', name)
-    # Remove quantities (digits followed by units)
     name = re.sub(r'\d+.*$', '', name)
     return name.strip().lower()
 
@@ -102,24 +101,19 @@ def extract_ingredients(text: str, is_zh_lang: bool) -> List[str]:
     text_clean = text.lower()
     matched_ingredients = []
     
-    # Gather all unique ingredient names from our recipe database
     all_ingredients = set()
     for r in recipes:
         ing_list = r["ingredients_zh"] if is_zh_lang else r["ingredients_en"]
         for ing in ing_list:
             if ing:
                 cleaned = clean_ingredient_name(ing)
-                if len(cleaned) > 1: # avoid single character matches
+                if len(cleaned) > 1:
                     all_ingredients.add(cleaned)
                 
-    # Sort ingredients by length descending to match longer phrases first (e.g. "five flower pork" before "pork")
     sorted_ingredients = sorted(list(all_ingredients), key=len, reverse=True)
     
-    # Search for ingredient keywords in user message
     for ing in sorted_ingredients:
-        # Escape for regex
         escaped_ing = re.escape(ing)
-        # Use boundary check for English to avoid matching parts of words
         if not is_zh_lang:
             pattern = rf'\b{escaped_ing}s?\b'
         else:
@@ -127,73 +121,206 @@ def extract_ingredients(text: str, is_zh_lang: bool) -> List[str]:
             
         if re.search(pattern, text_clean):
             matched_ingredients.append(ing)
-            # Remove matched ingredient from text to prevent sub-string double matching
             text_clean = re.sub(pattern, ' ', text_clean)
             
     return matched_ingredients
 
-def find_recipes_by_criteria(time_limit: Optional[int], matched_ingredients: List[str], search_text: str, is_zh_lang: bool) -> List[Dict[str, Any]]:
-    """Filters and ranks recipes based on time, ingredient matches, or text search."""
-    filtered = []
+def compute_semantic_similarity(query: str, name: str, intro: str) -> float:
+    """Computes a simple term frequency match score between the query and recipe text."""
+    query_clean = re.sub(r'[^\w\s\u4e00-\u9fff]', ' ', query.lower())
+    query_words = [w.strip() for w in re.split(r'[\s,，.。!！?？]+', query_clean) if w.strip()]
+    if not query_words:
+        return 1.0  # default to full score if no search query text
+    matches = 0
+    total_len = len(query_words)
+    for qw in query_words:
+        if len(qw) > 1 or is_chinese(qw):
+            if qw in name.lower() or qw in intro.lower():
+                matches += 1
+    return matches / total_len if total_len > 0 else 1.0
+
+def rank_recipes(
+    query_message: str,
+    selected_ingredients: Optional[List[str]],
+    time_limit: Optional[int],
+    difficulty_pref: Optional[int],
+    category_pref: Optional[str],
+    is_zh_lang: bool
+) -> List[Dict[str, Any]]:
+    """Ranks recipes using the explainable formula: 0.45*ingredients + 0.30*semantic + 0.15*time + 0.10*difficulty."""
+    ranked = []
     
+    user_ings_clean = []
+    if selected_ingredients:
+        user_ings_clean = [clean_ingredient_name(ing) for ing in selected_ingredients if ing]
+        
     for r in recipes:
-        # Time filter
-        if time_limit is not None:
-            if r["cooking_time_minutes"] > time_limit:
+        # Category filter
+        if category_pref and category_pref != "all":
+            if r["category"] != category_pref:
                 continue
-                
-        # Ingredient match score
-        match_count = 0
+
+        # 1. Ingredient Match Score (0.45)
         r_ings = r["ingredients_zh"] if is_zh_lang else r["ingredients_en"]
         r_ings_clean = [clean_ingredient_name(ing) for ing in r_ings if ing]
         r_ings_clean = [c for c in r_ings_clean if c]
         
-        for user_ing in matched_ingredients:
-            # Check if user ingredient matches any ingredient of the recipe
-            for r_ing in r_ings_clean:
-                if user_ing in r_ing or r_ing in user_ing:
-                    match_count += 1
-                    break
-                    
-        match_ratio = match_count / len(r_ings_clean) if r_ings_clean else 0
-        
-        # Text search match (fallback if no ingredients or time limit)
-        text_match = False
-        name = r["name_zh"] if is_zh_lang else r["name_en"]
+        match_count = 0
+        matched_list = []
+        if user_ings_clean:
+            for user_ing in user_ings_clean:
+                for idx, r_ing in enumerate(r_ings_clean):
+                    if user_ing in r_ing or r_ing in user_ing:
+                        match_count += 1
+                        matched_list.append(r_ings[idx])
+                        break
+            ingredient_match_score = match_count / len(r_ings_clean) if r_ings_clean else 0.0
+        else:
+            ingredient_match_score = 1.0  # default
+
+        # 2. Semantic Similarity Score (0.30)
+        name = r["recipe_name_original"] if is_zh_lang else r["recipe_name_english"]
         intro = r["intro_zh"] if is_zh_lang else r["intro_en"]
-        if search_text:
-            if search_text.lower() in name.lower() or search_text.lower() in intro.lower():
-                text_match = True
-                
-        filtered.append({
+        semantic_score = compute_semantic_similarity(query_message, name, intro)
+        
+        # 3. Time Constraint Match Score (0.15)
+        time_minutes = r["cooking_time_minutes"]
+        if time_limit:
+            if time_minutes <= time_limit:
+                time_score = 1.0
+            else:
+                time_score = max(0.0, 1.0 - (time_minutes - time_limit) / time_limit)
+        else:
+            time_score = 1.0
+            
+        # 4. Difficulty Preference Match Score (0.10)
+        diff_level = r["difficulty"]
+        if difficulty_pref:
+            if diff_level <= difficulty_pref:
+                diff_score = 1.0
+            else:
+                diff_score = max(0.0, 1.0 - (diff_level - difficulty_pref) / 5.0)
+        else:
+            diff_score = 1.0
+            
+        # Final weighted score
+        final_score = (
+            0.45 * ingredient_match_score +
+            0.30 * semantic_score +
+            0.15 * time_score +
+            0.10 * diff_score
+        )
+        
+        # Explainability text
+        if is_zh_lang:
+            why_details = []
+            if match_count > 0:
+                why_details.append(f"匹配了 {match_count} 种您有的食材 ({'、'.join(matched_list[:3])})")
+            if time_limit and time_minutes <= time_limit:
+                why_details.append(f"烹饪时间只需 {time_minutes} 分钟，符合您的时间要求")
+            if difficulty_pref and diff_level <= difficulty_pref:
+                why_details.append("难度低，适合新手制作")
+            why_recommended = "。".join(why_details) + "。" if why_details else "推荐这道经典美味菜谱。"
+        else:
+            why_details = []
+            if match_count > 0:
+                why_details.append(f"matches {match_count} of your ingredients ({', '.join(matched_list[:3])})")
+            if time_limit and time_minutes <= time_limit:
+                why_details.append(f"takes only {time_minutes} minutes, fitting your time limit")
+            if difficulty_pref and diff_level <= difficulty_pref:
+                why_details.append("is beginner-friendly")
+            why_recommended = "Recommended because it " + ", and ".join(why_details) + "." if why_details else "Recommended classic recipe."
+
+        ranked.append({
             "recipe": r,
-            "match_count": match_count,
-            "match_ratio": match_ratio,
-            "text_match": text_match
+            "scores": {
+                "ingredient_match": round(ingredient_match_score * 100, 1),
+                "semantic_similarity": round(semantic_score * 100, 1),
+                "time_match": round(time_score * 100, 1),
+                "difficulty_match": round(diff_score * 100, 1),
+                "final_score": round(final_score * 100, 1)
+            },
+            "why_recommended": why_recommended
         })
         
-    # Rank results
-    if matched_ingredients:
-        # Filter: must match at least one ingredient if ingredients were specified
-        filtered = [f for f in filtered if f["match_count"] > 0]
-        # Sort by match count descending, then match ratio descending
-        filtered.sort(key=lambda x: (x["match_count"], x["match_ratio"]), reverse=True)
-    elif search_text and not time_limit:
-        # Filter: must match search text
-        filtered = [f for f in filtered if f["text_match"]]
-        filtered.sort(key=lambda x: len(x["recipe"]["name_zh"])) # prefer shorter names
-    else:
-        # Just sorted by cooking time or difficulty
-        filtered.sort(key=lambda x: x["recipe"]["cooking_time_minutes"])
+    if user_ings_clean:
+        ranked = [item for item in ranked if item["scores"]["ingredient_match"] > 0]
         
-    # Limit to 5 suggestions
-    results = [f["recipe"] for f in filtered[:5]]
-    return results
+    ranked.sort(key=lambda x: x["scores"]["final_score"], reverse=True)
+    return ranked[:5]
+
+def generate_structured_rag_response(recipe: Dict[str, Any], why_recommended: str, scores: Dict[str, float], is_zh: bool) -> str:
+    """Generates a structured RAG-style grounded assistant response."""
+    name = recipe["recipe_name_original"] if is_zh else recipe["recipe_name_english"]
+    intro = recipe["intro_zh"] if is_zh else recipe["intro_en"]
+    difficulty_stars = "★" * recipe["difficulty"] if recipe["difficulty"] else "Normal"
+    
+    diff_source = "original dataset" if not recipe["difficulty_is_estimated"] else "estimated fallback"
+    difficulty_label = f"{difficulty_stars} ({diff_source} field)"
+    
+    time_mins = recipe["cooking_time_minutes"]
+    time_source = "original dataset" if not recipe["time_is_estimated"] else "inferred from steps"
+    time_label = f"{time_mins} minutes ({time_source} field)"
+    
+    calories = recipe["calories"]
+    if calories:
+        calories_source = "original dataset" if not recipe["calories_is_estimated"] else "estimated"
+        calories_label = f"{calories} kcal ({calories_source} field)"
+    else:
+        calories_label = "Not specified" if not is_zh else "未指定"
+        
+    ingredients = recipe["ingredients_zh"] if is_zh else recipe["ingredients_en"]
+    steps = recipe["steps_zh"] if is_zh else recipe["steps_en"]
+    source_file = recipe["file_path"]
+    
+    # Filter empty items
+    ingredients = [ing for ing in ingredients if ing]
+    steps = [step for step in steps if step]
+    
+    if is_zh:
+        res = f"### 🤖 HowToCook AI RAG 助手推荐\n\n"
+        res += f"**推荐菜谱**: {name}\n\n"
+        res += f"**为什么匹配**: {why_recommended} (综合推荐得分: **{scores['final_score']}%**)\n"
+        res += f"  - 食材匹配度: {scores['ingredient_match']}%\n"
+        res += f"  - 语义相关度: {scores['semantic_similarity']}%\n"
+        res += f"  - 时间符合度: {scores['time_match']}%\n"
+        res += f"  - 难度符合度: {scores['difficulty_match']}%\n\n"
+        res += f"**食材清单**:\n"
+        for ing in ingredients:
+            res += f"- {ing}\n"
+        res += f"\n**详细烹饪步骤**:\n"
+        for i, step in enumerate(steps, 1):
+            res += f"{i}. {step}\n"
+        res += f"\n**预估时间**: {time_label}\n"
+        res += f"**难度等级**: {difficulty_label}\n"
+        res += f"**卡路里估算**: {calories_label}\n"
+        res += f"**说明/提示**: {intro}\n"
+        res += f"**数据来源**: [{source_file}](https://github.com/Anduin2017/HowToCook/blob/main/dishes/{source_file})\n"
+    else:
+        res = f"### 🤖 HowToCook AI RAG Assistant Recommendation\n\n"
+        res += f"**Recommended recipe**: {name}\n\n"
+        res += f"**Why it matches**: {why_recommended} (Total Recommendation Score: **{scores['final_score']}%**)\n"
+        res += f"  - Ingredient Match: {scores['ingredient_match']}%\n"
+        res += f"  - Semantic Similarity: {scores['semantic_similarity']}%\n"
+        res += f"  - Time Constraint: {scores['time_match']}%\n"
+        res += f"  - Difficulty Match: {scores['difficulty_match']}%\n\n"
+        res += f"**Ingredients**:\n"
+        for ing in ingredients:
+            res += f"- {ing}\n"
+        res += f"\n**Cooking steps**:\n"
+        for i, step in enumerate(steps, 1):
+            res += f"{i}. {step}\n"
+        res += f"\n**Estimated time**: {time_label}\n"
+        res += f"**Difficulty**: {difficulty_label}\n"
+        res += f"**Calories**: {calories_label}\n"
+        res += f"**Notes**: {intro}\n"
+        res += f"**Source**: [recipe_repo/dishes/{source_file}](https://github.com/Anduin2017/HowToCook/blob/main/dishes/{source_file})\n"
+        
+    return res
 
 @app.post("/api/chat")
 async def chat_endpoint(payload: ChatRequest):
     global recipes
-    # Lazy reload recipes index if empty
     if not recipes and INDEX_PATH.exists():
         try:
             with open(INDEX_PATH, "r", encoding="utf-8") as f:
@@ -204,9 +331,6 @@ async def chat_endpoint(payload: ChatRequest):
     user_msg = payload.message.strip()
     session_id = payload.sessionId
     
-    if not user_msg:
-        raise HTTPException(status_code=400, detail="Empty message")
-        
     # Initialize session
     if session_id not in conversations:
         conversations[session_id] = {
@@ -215,143 +339,131 @@ async def chat_endpoint(payload: ChatRequest):
         }
         
     session = conversations[session_id]
-    session["messages"].append({"role": "user", "content": user_msg})
     
     # Auto detect language
-    is_zh = is_chinese(user_msg)
-    lang = "zh" if is_zh else "en"
-    
+    # Override if explicit language setting passed from frontend
+    if payload.language:
+        is_zh = (payload.language == "zh")
+    else:
+        is_zh = is_chinese(user_msg)
+        
     # Check if the user is requesting steps for a recipe from previous suggestions
     recipe_index_to_show = None
-    step_keywords_zh = ["步骤", "做法", "操作", "第", "怎么做", "如何做", "详细", "流程"]
-    step_keywords_en = ["step", "recipe", "how to cook", "details", "instruction", "make", "prepare"]
+    step_keywords_zh = ["步骤", "做法", "操作", "第", "怎么做", "如何做", "详细", "流程", "preview", "预览"]
+    step_keywords_en = ["step", "recipe", "how to cook", "details", "instruction", "make", "prepare", "preview"]
     
     has_step_intent = False
     if is_zh:
-        has_step_intent = any(k in user_msg for k in step_keywords_zh)
+        has_step_intent = any(k in user_msg for k in step_keywords_zh) if user_msg else False
     else:
-        has_step_intent = any(k in user_msg.lower() for k in step_keywords_en)
+        has_step_intent = any(k in user_msg.lower() for k in step_keywords_en) if user_msg else False
         
     # Try to parse index (1-5) or match recipe name
-    matched_recipe = None
+    matched_recipe_item = None
     
-    # 1. Look for index reference in message (e.g., "1", "show recipe 2", "第3个")
-    digit_match = re.search(r'\b([1-5])\b', user_msg)
-    if not digit_match:
-        # Chinese numbers
-        cn_digits = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5}
-        for k, v in cn_digits.items():
-            if k in user_msg:
-                recipe_index_to_show = v
-                break
-    else:
-        recipe_index_to_show = int(digit_match.group(1))
-        
-    # If the user asks for steps, check if they referenced a valid index from last suggestions
-    if has_step_intent and recipe_index_to_show is not None:
-        idx = recipe_index_to_show - 1
-        if 0 <= idx < len(session["last_suggestions"]):
-            matched_recipe = session["last_suggestions"][idx]
-            
-    # 2. Alternatively, match a recipe name directly in the message
-    if not matched_recipe:
-        for r in recipes:
-            name_zh = r["name_zh"].lower()
-            name_en = r["name_en"].lower()
-            if name_zh in user_msg.lower() or name_en in user_msg.lower():
-                matched_recipe = r
-                break
-                
-    # If we found a recipe to show details for:
-    if matched_recipe:
-        # Reset last suggestions so user is now focusing on this recipe
-        # Return full cooking instructions
-        name = matched_recipe["name_zh"] if is_zh else matched_recipe["name_en"]
-        intro = matched_recipe["intro_zh"] if is_zh else matched_recipe["intro_en"]
-        difficulty = "★" * matched_recipe["difficulty"] if matched_recipe["difficulty"] else "Normal"
-        calories = matched_recipe["calories"]
-        time_mins = matched_recipe["cooking_time_minutes"]
-        ingredients = matched_recipe["ingredients_zh"] if is_zh else matched_recipe["ingredients_en"]
-        ingredients = [ing for ing in ingredients if ing]
-        steps = matched_recipe["steps_zh"] if is_zh else matched_recipe["steps_en"]
-        images = matched_recipe["images"]
-        
-        # Build reply
-        if is_zh:
-            reply = f"### 📖 {name}\n\n"
-            reply += f"*{intro}*\n\n"
-            reply += f"⏱️ **预估时间**: {time_mins} 分钟 | ⭐ **难度**: {difficulty}"
-            if calories:
-                reply += f" | 🔥 **卡路里**: {calories} 大卡"
-            reply += "\n\n#### 🛒 必备原料和工具\n"
-            for ing in ingredients:
-                reply += f"- {ing}\n"
-            reply += "\n#### 🍳 详细操作步骤\n"
-            for i, step in enumerate(steps, 1):
-                reply += f"{i}. {step}\n"
+    if user_msg:
+        digit_match = re.search(r'\b([1-5])\b', user_msg)
+        if not digit_match:
+            cn_digits = {"一": 1, "二": 2, "三": 3, "四": 4, "五": 5}
+            for k, v in cn_digits.items():
+                if k in user_msg:
+                    recipe_index_to_show = v
+                    break
         else:
-            reply = f"### 📖 {name}\n\n"
-            reply += f"*{intro}*\n\n"
-            reply += f"⏱️ **Time**: {time_mins} mins | ⭐ **Difficulty**: {difficulty}"
-            if calories:
-                reply += f" | 🔥 **Calories**: {calories} kcal"
-            reply += "\n\n#### 🛒 Ingredients & Tools Required\n"
-            for ing in ingredients:
-                reply += f"- {ing}\n"
-            reply += "\n#### 🍳 Detailed Cooking Steps\n"
-            for i, step in enumerate(steps, 1):
-                reply += f"{i}. {step}\n"
-                
-        # Append images if available
-        image_html = ""
-        if images:
-            image_html = f"\n\n![{name}](/api/images?path={images[0]})"
-            reply += image_html
+            recipe_index_to_show = int(digit_match.group(1))
             
+        if has_step_intent and recipe_index_to_show is not None:
+            idx = recipe_index_to_show - 1
+            if 0 <= idx < len(session["last_suggestions"]):
+                matched_recipe_item = session["last_suggestions"][idx]
+                
+        if not matched_recipe_item:
+            # Match by name
+            for r_item in session["last_suggestions"]:
+                r = r_item["recipe"]
+                name_zh = r["recipe_name_original"].lower()
+                name_en = r["recipe_name_english"].lower()
+                if name_zh in user_msg.lower() or name_en in user_msg.lower():
+                    matched_recipe_item = r_item
+                    break
+
+    # If we found a recipe to show details for (step request):
+    if matched_recipe_item:
+        recipe = matched_recipe_item["recipe"]
+        scores = matched_recipe_item["scores"]
+        why_recommended = matched_recipe_item["why_recommended"]
+        
+        reply = generate_structured_rag_response(recipe, why_recommended, scores, is_zh)
+        images = recipe["images"]
+        if images:
+            reply += f"\n\n![{recipe['recipe_name_original']}](/api/images?path={images[0]})"
+            
+        session["messages"].append({"role": "user", "content": user_msg or "Show Details"})
         session["messages"].append({"role": "bot", "content": reply})
+        
         return {
             "reply": reply,
-            "recipes": [matched_recipe], # Return the selected recipe in payload
+            "recipes": [recipe],
+            "scores": [scores],
+            "why_recommended": [why_recommended],
             "mode": "detail"
         }
         
-    # If not requesting steps, perform recipe search
-    # Parse ingredients
-    matched_ingredients = extract_ingredients(user_msg, is_zh)
-    # Parse time limit
-    time_limit = extract_time_limit(user_msg)
+    # If not requesting steps, perform ranked search
+    # Resolve filters
+    user_ingredients = payload.ingredients
+    if not user_ingredients and user_msg:
+        # Extract from text message
+        user_ingredients = extract_ingredients(user_msg, is_zh)
+        
+    time_limit = payload.timeLimit
+    if not time_limit and user_msg:
+        time_limit = extract_time_limit(user_msg)
+        
+    difficulty_pref = payload.difficulty
+    category_pref = payload.category
     
-    # Perform search
-    suggested = find_recipes_by_criteria(time_limit, matched_ingredients, user_msg, is_zh)
+    # Run explainable ranking search
+    suggested_items = rank_recipes(
+        query_message=user_msg,
+        selected_ingredients=user_ingredients,
+        time_limit=time_limit,
+        difficulty_pref=difficulty_pref,
+        category_pref=category_pref,
+        is_zh_lang=is_zh
+    )
     
     # Store suggestions in session context
-    session["last_suggestions"] = suggested
+    session["last_suggestions"] = suggested_items
     
-    # Build conversational short answer
-    if is_zh:
-        if not suggested:
-            reply = "抱歉，没有找到符合您要求的菜谱。您可以尝试提供其他食材或调整烹饪时间！"
+    # Extract recipe structures
+    suggested_recipes = [item["recipe"] for item in suggested_items]
+    suggested_scores = [item["scores"] for item in suggested_items]
+    suggested_why = [item["why_recommended"] for item in suggested_items]
+    
+    # Build reply
+    if not suggested_items:
+        if is_zh:
+            reply = "抱歉，没有找到符合您要求的菜谱。您可以尝试提供其他食材或调整过滤条件！"
         else:
-            reply = f"我为您找到了以下 **{len(suggested)}** 道精选菜谱：\n\n"
-            for i, r in enumerate(suggested, 1):
-                diff = "★" * r["difficulty"] if r["difficulty"] else "无"
-                reply += f"{i}. **{r['name_zh']}** ({r['cooking_time_minutes']} 分钟 | 难度 {diff})\n"
-            reply += "\n💡 **您可以直接点击下方的菜谱卡片**，或在聊天中输入 **“查看第几道菜的步骤”**（例如：“详细做法 1” 或 “如何做 {recipe_name}”）来获取详细烹饪步骤！"
+            reply = "Sorry, I couldn't find any recipes matching your criteria. Try suggesting different ingredients or adjusting the filters!"
     else:
-        if not suggested:
-            reply = "Sorry, I couldn't find any recipes matching your criteria. Try suggesting different ingredients or adjusting the cooking time!"
-        else:
-            reply = f"I found **{len(suggested)}** recommended recipe(s) for you:\n\n"
-            for i, r in enumerate(suggested, 1):
-                diff = "★" * r["difficulty"] if r["difficulty"] else "Normal"
-                reply += f"{i}. **{r['name_en']}** ({r['cooking_time_minutes']} mins | Difficulty: {diff})\n"
-            reply += "\n💡 **You can click the recipe cards below**, or reply with **\"show steps for recipe X\"** (e.g. \"show steps for 1\" or \"how to cook {recipe_name}\") to see full instructions!"
+        # RAG grounded response for top recommendation
+        top_item = suggested_items[0]
+        reply = generate_structured_rag_response(top_item["recipe"], top_item["why_recommended"], top_item["scores"], is_zh)
+        images = top_item["recipe"]["images"]
+        if images:
+            reply += f"\n\n![{top_item['recipe']['recipe_name_original']}](/api/images?path={images[0]})"
             
+    if user_msg:
+        session["messages"].append({"role": "user", "content": user_msg})
     session["messages"].append({"role": "bot", "content": reply})
     
     return {
         "reply": reply,
-        "recipes": suggested,
+        "recipes": suggested_recipes,
+        "scores": suggested_scores,
+        "why_recommended": suggested_why,
         "mode": "list"
     }
 
