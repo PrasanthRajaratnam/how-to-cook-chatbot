@@ -1,5 +1,7 @@
 venv/
 __pycache__/
-recipe_repo/
+recipe_repo/*
+!recipe_repo/dishes/
+!recipe_repo/dishes/**
 translation_cache.json
 temp_img.jpg

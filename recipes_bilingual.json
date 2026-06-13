@@ -3768,7 +3768,10 @@
       "Remove from the pot (light soy sauce can be added for seasoning)",
       "enjoy"
     ],
-    "images": [],
+    "images": [
+      "dishes/vegetable_dish/鸡蛋羹/微波炉鸡蛋羹.jpg",
+      "dishes/vegetable_dish/鸡蛋羹/鸡蛋羹.jpg"
+    ],
     "cooking_time_minutes": 15,
     "time_is_estimated": false,
     "time_category": "under 15 minutes",
@@ -3835,7 +3838,8 @@
       "Enjoy egg custard happily"
     ],
     "images": [
-      "dishes/vegetable_dish/鸡蛋羹/微波炉鸡蛋羹.jpg"
+      "dishes/vegetable_dish/鸡蛋羹/微波炉鸡蛋羹.jpg",
+      "dishes/vegetable_dish/鸡蛋羹/鸡蛋羹.jpg"
     ],
     "cooking_time_minutes": 10,
     "time_is_estimated": false,
@@ -3886,7 +3890,7 @@
       "加入 2ml 白醋，去除鸡蛋的腥味（可选）",
       "向碗中加入鸡蛋体积 1-1.5 倍的 70 度纯净水，并且搅拌均匀",
       "过滤蛋液，去掉蛋液中的浮沫（可选，不过滤蒸出来的蛋会有气泡导致不好看）",
-      "向任意一口锅中加入 50ml 清水，水烧开后，放入盛有鸡蛋液的碗",
+      "向任意一口锅中加入 300-500ml 清水，水烧开后，放入盛有鸡蛋液的碗",
       "蒸煮步骤（二选一）",
       "开**中火**蒸**10 分钟**, 10 分钟之后关火再闷上**5 分钟**。",
       "开**大火**蒸**5 分钟**，要保持锅中水一直处于沸腾状态，否则要延长时间。每隔**2 分钟**开盖一次释放水蒸气，开盖过晚蛋羹容易变成蜂窝状；开盖太早/频繁蒸的时间需要久一些。",
@@ -3900,7 +3904,7 @@
       "Add 2ml white vinegar to remove the fishy smell of eggs (optional)",
       "Add 70-degree purified water 1-1.5 times the volume of eggs into the bowl and stir evenly",
       "Filter the egg liquid to remove the scum in the egg liquid (optional, eggs steamed without filtering will have bubbles which will make them unsightly)",
-      "Add 50ml of water to any pot. After the water boils, add a bowl with egg liquid.",
+      "Add 300-500ml of water to any pot. After the water boils, put it into a bowl with egg liquid.",
       "Cooking steps (choose one of two)",
       "Turn on **medium heat** and steam for **10 minutes**. After 10 minutes, turn off the heat and simmer for **5 minutes**.",
       "Turn on high heat and steam for 5 minutes. Keep the water in the pot boiling, otherwise the time will be extended. Open the lid every **2 minutes** to release water vapor. If you open the lid too late, the custard will easily turn into a honeycomb shape; if you open the lid too early/steam frequently, it will take longer.",
@@ -3909,7 +3913,8 @@
       "Add sesame oil and light soy sauce and enjoy"
     ],
     "images": [
-      "dishes/vegetable_dish/鸡蛋羹/鸡蛋羹.jpg"
+      "dishes/vegetable_dish/鸡蛋羹/鸡蛋羹.jpg",
+      "dishes/vegetable_dish/鸡蛋羹/微波炉鸡蛋羹.jpg"
     ],
     "cooking_time_minutes": 15,
     "time_is_estimated": false,
@@ -7300,7 +7305,7 @@
     ],
     "images": [
       "dishes/staple/炒凉粉/chaoliangfen.jpg",
-      "dishes/staple/炒凉粉/chaoliangfen.jpg"
+      "dishes/staple/炒凉粉/炒凉粉成品.jpg"
     ],
     "cooking_time_minutes": 15,
     "time_is_estimated": false,
@@ -8494,7 +8499,9 @@
       "Simmer the rice in the rice cooker for 10-15 minutes.",
       "Serve rice."
     ],
-    "images": [],
+    "images": [
+      "dishes/staple/米饭/rice_regularPot.jpeg"
+    ],
     "cooking_time_minutes": 45,
     "time_is_estimated": true,
     "time_category": "30-60 minutes",
@@ -16222,8 +16229,7 @@
       "dishes/meat_dish/巴基斯坦牛肉咖喱/牛肉.png",
       "dishes/meat_dish/巴基斯坦牛肉咖喱/油.png",
       "dishes/meat_dish/巴基斯坦牛肉咖喱/倒入番茄蓉.png",
-      "dishes/meat_dish/巴基斯坦牛肉咖喱/红.png",
-      "dishes/meat_dish/巴基斯坦牛肉咖喱/巴基斯坦牛肉咖喱.png"
+      "dishes/meat_dish/巴基斯坦牛肉咖喱/红.png"
     ],
     "cooking_time_minutes": 3,
     "time_is_estimated": true,
@@ -16301,7 +16307,7 @@
       "When it looks *sticky*, turn off the heat and serve on a plate"
     ],
     "images": [
-      "https://user-images.githubusercontent.com/49046468/205808925-b0ab8f98-0325-4136-8094-3f2ae8c547d5.jpg"
+      "dishes/meat_dish/青椒土豆炒肉/青椒土豆炒肉.jpg"
     ],
     "cooking_time_minutes": 60,
     "time_is_estimated": false,
@@ -16558,7 +16564,9 @@
       "Observe the color of the chicken skin and prick the thickest part with a toothpick to see if there is blood flowing out.",
       "If necessary, fry at 200°C for another 1-2 minutes to add crispiness and color (this can be done iteratively, first fry for 1 minute and observe before deciding whether to continue)."
     ],
-    "images": [],
+    "images": [
+      "dishes/meat_dish/空气炸锅脆皮现腌炸鸡/外焦里嫩的脆皮空气炸锅炸鸡.jpeg"
+    ],
     "cooking_time_minutes": 70,
     "time_is_estimated": false,
     "time_category": "over 60 minutes",
@@ -17233,7 +17241,10 @@
       "**Seasoning and collecting the sauce:** Open the lid of the pot and add 3g of salt (you can taste the soup at this time and fine-tune it according to your personal taste). Turn up the heat and start stir-frying to reduce the juice, which will take about 3-5 minutes. Turn off the heat until the soup thickens and evenly coats the ribs and potatoes.",
       "**Decoration and serving:** Place on a plate and serve. Sprinkle 10g of pre-processed green onion evenly on the surface as UI decoration."
     ],
-    "images": [],
+    "images": [
+      "dishes/meat_dish/土豆炖排骨/排骨1.jpg",
+      "dishes/meat_dish/土豆炖排骨/排骨2.jpg"
+    ],
     "cooking_time_minutes": 90,
     "time_is_estimated": false,
     "time_category": "over 60 minutes",
@@ -20768,7 +20779,10 @@
       "When the height of the water is reduced to 3/5 of the highest height of the meat and the height of the bottom of the pot, turn to medium heat, remove all the ingredients except the meat and water, and begin to collect the juice;",
       "Open the lid of the pot, and when the soup is almost gone, take it out of the pot (remember not to let it dry out);"
     ],
-    "images": [],
+    "images": [
+      "dishes/meat_dish/红烧肉/000.jpg",
+      "dishes/meat_dish/红烧肉/001.jpg"
+    ],
     "cooking_time_minutes": 90,
     "time_is_estimated": false,
     "time_category": "over 60 minutes",
@@ -21220,8 +21234,8 @@
       "Remove from the pan, serve on a plate and serve."
     ],
     "images": [
-      "dishes/meat_dish/血浆鸭/血浆鸭(特辣",
-      "dishes/meat_dish/血浆鸭/血浆鸭(微辣"
+      "dishes/meat_dish/血浆鸭/血浆鸭(特辣).jpg",
+      "dishes/meat_dish/血浆鸭/血浆鸭(微辣).jpg"
     ],
     "cooking_time_minutes": 120,
     "time_is_estimated": false,
@@ -21832,7 +21846,9 @@
       "Add water to the soup container and simmer for 1.5 hours",
       "Add salt and drink while hot"
     ],
-    "images": [],
+    "images": [
+      "dishes/soup/陈皮排骨汤/陈皮排骨汤.jpg"
+    ],
     "cooking_time_minutes": 300,
     "time_is_estimated": true,
     "time_category": "over 60 minutes",
@@ -24780,8 +24796,7 @@
       "dishes/aquatic/葱烧海参/葱烧海参.jpeg",
       "dishes/aquatic/葱烧海参/海参.jpeg",
       "dishes/aquatic/葱烧海参/酱汁.jpeg",
-      "dishes/aquatic/葱烧海参/葱白.jpeg",
-      "dishes/aquatic/葱烧海参/葱烧海参.jpeg"
+      "dishes/aquatic/葱烧海参/葱白.jpeg"
     ],
     "cooking_time_minutes": 13,
     "time_is_estimated": true,
@@ -25040,7 +25055,11 @@
       "Pour 15g of vegetable oil into the iron pot and simmer for 5 minutes over medium-low heat. Do not use high heat, otherwise the oil will evaporate quickly.",
       "Pour the hot oil evenly and slowly over the fish, and the fresh mandarin fish with scallion oil is ready!"
     ],
-    "images": [],
+    "images": [
+      "dishes/aquatic/葱油桂鱼/10.jpg",
+      "dishes/aquatic/葱油桂鱼/葱油桂鱼.jpg",
+      "dishes/aquatic/葱油桂鱼/葱油鲈鱼.jpg"
+    ],
     "cooking_time_minutes": 45,
     "time_is_estimated": false,
     "time_category": "30-60 minutes",
@@ -26918,8 +26937,8 @@
       "Then put the stone jelly powder into the prepared disposable transparent plastic cup with a spoon, add 10ml mint juice or 10g mint powder (lemon juice, hawthorn juice, mulberry juice can also be used), then add ice cubes that glow when exposed to water, and slowly stir evenly with a spoon"
     ],
     "images": [
-      "dishes/drink/冰粉/石凉粉(冰粉",
-      "dishes/drink/冰粉/石凉粉(冰粉"
+      "dishes/drink/冰粉/石凉粉(冰粉)成品1.jpg",
+      "dishes/drink/冰粉/石凉粉(冰粉)成品2.jpg"
     ],
     "cooking_time_minutes": 306,
     "time_is_estimated": true,
@@ -27918,9 +27937,7 @@
       "Immediately put in ice water (0 degrees Celsius) to stop heating (maintain for 30 seconds)",
       "When peeling, start from the air chamber at the blunt end and peel off the egg membrane along the longitudinal axis."
     ],
-    "images": [
-      "https://img-s-msn-com.akamaized.net/tenant/amp/entityid/AA1yBdnK.img?w=768&h=512&m=6"
-    ],
+    "images": [],
     "cooking_time_minutes": 35,
     "time_is_estimated": false,
     "time_category": "30-60 minutes",

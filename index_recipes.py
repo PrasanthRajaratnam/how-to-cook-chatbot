@@ -3,6 +3,7 @@ import re
 import json
 import time
 from pathlib import Path
+from urllib.parse import unquote
 from deep_translator import GoogleTranslator
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -10,6 +11,7 @@ REPO_PATH = BASE_DIR / "recipe_repo"
 DISHES_PATH = REPO_PATH / "dishes"
 OUTPUT_INDEX_PATH = BASE_DIR / "recipes_bilingual.json"
 CACHE_PATH = BASE_DIR / "translation_cache.json"
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 # Load translation cache
 translation_cache = {}
@@ -163,6 +165,100 @@ def infer_time_from_text(intro, steps):
         
     return None # Fallback done on loading
 
+def natural_sort_key(path):
+    return [
+        int(part) if part.isdigit() else part.lower()
+        for part in re.split(r'(\d+)', str(path))
+    ]
+
+def image_priority(path):
+    name = path.name.lower()
+    score = 10
+    preferred_terms = ["成品", "完成", "finished", "final", "result"]
+    if any(term in name for term in preferred_terms):
+        score = 0
+    elif path.stem in {"1", "01"}:
+        score = 1
+    return (score, natural_sort_key(path.name))
+
+def image_path_to_repo_relative(image_path):
+    try:
+        resolved_path = image_path.resolve()
+        rel_img_path = resolved_path.relative_to(REPO_PATH)
+    except ValueError:
+        return None
+    if not resolved_path.is_file() or resolved_path.suffix.lower() not in IMAGE_EXTENSIONS:
+        return None
+    return str(rel_img_path).replace(os.sep, "/")
+
+def extract_markdown_image_paths(content):
+    image_paths = []
+    for line in content.splitlines():
+        if "![" not in line:
+            continue
+        start = 0
+        while True:
+            marker = line.find("](", start)
+            if marker == -1:
+                break
+            close_candidates = [
+                pos for ext in IMAGE_EXTENSIONS
+                for pos in [line.lower().find(ext, marker + 2)]
+                if pos != -1
+            ]
+            if not close_candidates:
+                start = marker + 2
+                continue
+            ext_pos = min(close_candidates)
+            close = line.find(")", ext_pos)
+            if close == -1:
+                break
+            image_paths.append(line[marker + 2:close].strip())
+            start = close + 1
+    return image_paths
+
+def discover_recipe_images(filepath, content):
+    images = []
+    seen = set()
+
+    def add_image(image_path):
+        if not image_path or image_path in seen:
+            return
+        seen.add(image_path)
+        images.append(image_path)
+
+    for img_path in extract_markdown_image_paths(content):
+        clean_img_path = unquote(img_path.strip().strip("<>"))
+        if clean_img_path.startswith(("http://", "https://", "www.")):
+            continue
+        rel_path = image_path_to_repo_relative(filepath.parent / clean_img_path)
+        if rel_path:
+            add_image(rel_path)
+
+    candidate_dirs = []
+    category_dir = REPO_PATH / "dishes" / filepath.relative_to(REPO_PATH / "dishes").parts[0]
+    if filepath.parent != category_dir:
+        candidate_dirs.append(filepath.parent)
+
+    same_name_dir = filepath.with_suffix("")
+    if same_name_dir.exists() and same_name_dir.is_dir():
+        candidate_dirs.append(same_name_dir)
+
+    for candidate_dir in dict.fromkeys(candidate_dirs):
+        local_images = sorted(
+            [
+                item for item in candidate_dir.iterdir()
+                if item.is_file() and item.suffix.lower() in IMAGE_EXTENSIONS
+            ],
+            key=image_priority
+        )
+        for image_file in local_images:
+            rel_path = image_path_to_repo_relative(image_file)
+            if rel_path:
+                add_image(rel_path)
+
+    return images
+
 def parse_recipe_file(filepath):
     try:
         with open(filepath, "r", encoding="utf-8") as f:
@@ -188,21 +284,8 @@ def parse_recipe_file(filepath):
     if title_match:
         name = title_match.group(1).strip()
         
-    # Extract images from markdown
-    img_matches = re.findall(r'!\[(.*?)\]\((.*?)\)', content)
-    for img_title, img_path in img_matches:
-        # Resolve path relative to filepath's directory
-        clean_img_path = img_path.strip()
-        if not clean_img_path.startswith("http") and not clean_img_path.startswith("www"):
-            resolved_path = (filepath.parent / clean_img_path).resolve()
-            try:
-                rel_img_path = resolved_path.relative_to(REPO_PATH)
-                images.append(str(rel_img_path))
-            except ValueError:
-                # If not inside repo, just store the original
-                images.append(clean_img_path)
-        else:
-            images.append(clean_img_path)
+    # Extract linked images and discover sibling dish-folder photos.
+    images = discover_recipe_images(filepath, content)
             
     # Split content by sections
     sections = re.split(r'^##\s+', content, flags=re.MULTILINE)
